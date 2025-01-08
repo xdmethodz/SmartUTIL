@@ -20,7 +20,7 @@ def setup_decoders_handler(app: Client):
         "tcap": lambda text: text.upper(),
         "tsm": lambda text: text.lower(),
         "wc": lambda text: (
-            f"<b>Text Counter</b>\n\n"
+            "<b>Text Counter</b>\n\n"
             f"<b>Words:</b> <code>{len(text.split())}</code>\n"
             f"<b>Characters:</b> <code>{len(text)}</code>\n"
             f"<b>Sentences:</b> <code>{text.count('.') + text.count('!') + text.count('?')}</code>\n"
