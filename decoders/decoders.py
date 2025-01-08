@@ -21,10 +21,15 @@ def setup_decoders_handler(app: Client):
         "tsm": lambda text: text.lower(),
         "wc": lambda text: (
             "<b>Text Counter</b>\n\n"
-            f"<b>Words:</b> <code>{len(text.split())}</code>\n"
-            f"<b>Characters:</b> <code>{len(text)}</code>\n"
-            f"<b>Sentences:</b> <code>{text.count('.') + text.count('!') + text.count('?')}</code>\n"
-            f"<b>Paragraphs:</b> <code>{text.count('\\n') + 1}</code>"
+            "<b>Words:</b> <code>{}</code>\n"
+            "<b>Characters:</b> <code>{}</code>\n"
+            "<b>Sentences:</b> <code>{}</code>\n"
+            "<b>Paragraphs:</b> <code>{}</code>".format(
+                len(text.split()),
+                len(text),
+                text.count('.') + text.count('!') + text.count('?'),
+                text.count('\n') + 1
+            )
         )
     }
 
