@@ -13,7 +13,7 @@ from others.privacy import setup_privacy_handler
 from crypto.binance import setup_binance_handler
 from tempmail.tempmail import setup_temp_mail_handler
 from crypto.crypto import setup_crypto_handler
-from others.fake import setup_fake_handler
+from stringsession.string import setup_string_handler
 # Replace these with your actual API details
 API_ID = "24602058"  # Replace with your API ID
 API_HASH = "b976a44ccb8962b20113113f84aeebf6"  # Replace with your API Hash
@@ -37,6 +37,7 @@ setup_privacy_handler(app)
 setup_binance_handler(app)
 setup_temp_mail_handler(app)
 setup_crypto_handler(app)
+setup_string_handler(app)
 # Inline keyboard for the main menu
 main_menu_keyboard = InlineKeyboardMarkup([
     [
