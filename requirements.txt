@@ -1,0 +1,8 @@
+pyrogram==2.0.106
+requests==2.30.0
+telethon==1.28.0
+asyncio==3.4.3
+pytz==2022.6
+pycountry==22.3.5
+beautifulsoup4==4.11.1
+faker==18.9.0
