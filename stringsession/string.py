@@ -146,7 +146,7 @@ def setup_string_handler(app: Client):
             )
         except (ApiIdInvalid, ApiIdInvalidError):
             await message.reply(
-                '`API_ID` and `API_HASH` combination is invalid. Please restart.",
+                '`API_ID` and `API_HASH` combination is invalid. Please restart.',
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("Restart", callback_data=f"restart_{session['type'].lower()}"),
                      InlineKeyboardButton("Close", callback_data="close")]
