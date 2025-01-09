@@ -1,4 +1,4 @@
-import requests
+import requests 
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -47,7 +47,7 @@ def setup_string_handler(app: Client):
             "**Note: Don't send OTP directly. Otherwise, your account could be banned, or you may not be able to log in.**",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("Proceed", callback_data=f"proceed_{session_type.lower()}"),
-                InlineKeyboardButton("Close", callback_data="close_session")
+                InlineKeyboardButton("Close", callback_data="close")
             ]])
         )
 
@@ -58,7 +58,7 @@ def setup_string_handler(app: Client):
             "<b>Send Your API ID</b>",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("Retry", callback_data=f"retry_{session_type}"),
-                InlineKeyboardButton("Close", callback_data="close_session")
+                InlineKeyboardButton("Close", callback_data="close")
             ]]),
             parse_mode=ParseMode.HTML
         )
@@ -67,9 +67,9 @@ def setup_string_handler(app: Client):
     @app.on_callback_query(filters.regex(r"^retry_(pyrogram|telethon)"))
     async def on_retry_callback(client, callback_query):
         session_type = callback_query.data.split('_')[1]
-        await proceed_session(client, callback_query.message, telethon=(session_type == "telethon"))
+        await start_session(client, callback_query.message, telethon=(session_type == "telethon"))
 
-    @app.on_callback_query(filters.regex(r"^close_session"))
+    @app.on_callback_query(filters.regex(r"^close"))
     async def on_close_callback(client, callback_query):
         await callback_query.message.edit_text("Session generation process has been closed.")
 
@@ -90,7 +90,7 @@ def setup_string_handler(app: Client):
                     "<b>Send Your API Hash</b>",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                        InlineKeyboardButton("Close", callback_data="close_session")
+                        InlineKeyboardButton("Close", callback_data="close")
                     ]]),
                     parse_mode=ParseMode.HTML
                 )
@@ -104,7 +104,7 @@ def setup_string_handler(app: Client):
                 "<b>Send Your Phone Number\n[Example: +880xxxxxxxxxx]</b>",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close_session")
+                    InlineKeyboardButton("Close", callback_data="close")
                 ]]),
                 parse_mode=ParseMode.HTML
             )
@@ -151,18 +151,18 @@ def setup_string_handler(app: Client):
                 "<b>Send The OTP as text. Please send a text message embedding the OTP like: 'AB1 CD2 EF3 GH4 IJ5'</b>",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close_session")
+                    InlineKeyboardButton("Close", callback_data="close")
                 ]]),
                 parse_mode=ParseMode.HTML
             )
         except (ApiIdInvalid, ApiIdInvalidError):
             await message.reply('API_ID and API_HASH combination is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close_session")]
+                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
             ]))
             return
         except (PhoneNumberInvalid, PhoneNumberInvalidError):
             await message.reply('PHONE_NUMBER is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close_session")]
+                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
             ]))
             return
 
@@ -182,12 +182,12 @@ def setup_string_handler(app: Client):
             await generate_session(client, message)
         except (PhoneCodeInvalid, PhoneCodeInvalidError):
             await message.reply('OTP is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close_session")]
+                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
             ]))
             return
         except (PhoneCodeExpired, PhoneCodeExpiredError):
             await message.reply('OTP is expired. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close_session")]
+                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
             ]))
             return
         except (SessionPasswordNeeded, SessionPasswordNeededError):
@@ -196,7 +196,7 @@ def setup_string_handler(app: Client):
                 "<b>2FA Is Required To Login. Please Enter 2FA</b>",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close_session")
+                    InlineKeyboardButton("Close", callback_data="close")
                 ]]),
                 parse_mode=ParseMode.HTML
             )
@@ -215,7 +215,7 @@ def setup_string_handler(app: Client):
             await generate_session(client, message)
         except (PasswordHashInvalid, PasswordHashInvalidError):
             await message.reply('Invalid Password Provided. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close_session")]
+                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
             ]))
             return
 
@@ -244,7 +244,7 @@ def setup_string_handler(app: Client):
         if "/cancel" in message.text:
             await message.reply("Cancelled the Process!", quote=True)
             return True
-        elif "/retry" in message.text:
+        elif "/restart" in message.text:
             await message.reply("Restarted the Bot!", quote=True)
             return True
         elif message.text.startswith("/"):  # Bot Commands
