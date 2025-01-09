@@ -1,6 +1,5 @@
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import time
 import asyncio
 from pyrogram.enums import ParseMode
 # Import the handlers
