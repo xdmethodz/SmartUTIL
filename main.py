@@ -16,7 +16,7 @@ from others.fake import setup_fake_handler
 # Replace these with your actual API details
 API_ID = "24602058"  # Replace with your API ID
 API_HASH = "b976a44ccb8962b20113113f84aeebf6"  # Replace with your API Hash
-BOT_TOKEN = "8014443928:AAHN9eBoWdjD9mqmRtux7XIsXZdqHNVnijk"  # Replace with your Bot Token
+BOT_TOKEN = "8014443928:AAEJsqHjY--nOrufJnPEVo_0z4J0Ot5A2EA"  # Replace with your Bot Token
 
 # Initialize the app client
 app = Client(
