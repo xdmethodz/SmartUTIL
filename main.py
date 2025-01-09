@@ -72,9 +72,9 @@ async def send_start_message(client, message):
 
     # Animation messages
     animation_message = await message.reply_text("<b>Starting Smart Nexus...</b>", parse_mode=ParseMode.HTML)
-    time.sleep(0.4)
+    await sleep(0.4)
     await animation_message.edit_text("<b>Preparing Your Experience Please Wait...</b>", parse_mode=ParseMode.HTML)
-    time.sleep(0.4)
+    await sleep(0.4)
     await animation_message.delete()
 
     # Main welcome message
@@ -93,7 +93,6 @@ async def send_start_message(client, message):
         ]),
         disable_web_page_preview=True,
     )
-
 
 @app.on_callback_query()
 async def handle_callback_query(client, callback_query):
