@@ -16,7 +16,9 @@ def fetch_synonyms_antonyms(word):
 # Function to translate text using Global Translator API
 def translate_text(text, target_lang):
     response = requests.get(f"https://global-translator-api.bjcoderx.workers.dev/?text={text}&targetLang={target_lang}")
-    return response.text
+    response_data = response.json()
+    translated_text = response_data.get("translatedText", "Translation failed")
+    return translated_text
 
 def setup_education_handler(app: Client):
     @app.on_message(filters.command("syn"))
