@@ -9,7 +9,7 @@ import google.generativeai as genai
 
 # Google API Key
 GOOGLE_API_KEY = "AIzaSyBpzOzxP5xe3LUc8KtP6MM-3PRvtDLtNKI"  # Replace this with your Google API Key
-MODEL_NAME = "gemini-1.5-flash"  # Don't change this model
+MODEL_NAME = "models/gemini-1.5-flash"  # Ensure this is the correct model name
 
 # Configure the API key
 genai.configure(api_key=GOOGLE_API_KEY)
