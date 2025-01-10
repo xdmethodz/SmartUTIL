@@ -23,8 +23,14 @@ def setup_gpt_handlers(app: Client):
                 return
 
             prompt = " ".join(message.command[1:])
+            # Send a temporary message indicating the bot is generating a response
+            loading_message = await message.reply_text("**Generating GPT Response Please Wait....⚡️**", parse_mode=ParseMode.MARKDOWN)
             # Fetch response from the API
             response_text = fetch_gpt_response(prompt, "gpt-4o-mini")
+            
+            # Delete the loading message
+            await loading_message.delete()
+            
             if response_text:
                 # Send the response text to the user
                 await message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
