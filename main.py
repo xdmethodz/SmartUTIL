@@ -13,6 +13,7 @@ from crypto.binance import setup_binance_handler
 from tempmail.tempmail import setup_temp_mail_handler
 from crypto.crypto import setup_crypto_handler
 from others.fake import setup_fake_handler
+from educationutils import setup_education_handler
 # Replace these with your actual API details
 API_ID = "24602058"  # Replace with your API ID
 API_HASH = "b976a44ccb8962b20113113f84aeebf6"  # Replace with your API Hash
@@ -37,6 +38,7 @@ setup_binance_handler(app)
 setup_temp_mail_handler(app)
 setup_crypto_handler(app)
 setup_fake_handler(app)
+setup_education_handler(app)
 # Inline keyboard for the main menu
 main_menu_keyboard = InlineKeyboardMarkup([
     [
@@ -78,21 +80,20 @@ async def send_start_message(client, message):
 
     # Main welcome message
     start_message = (
-        f"Hi — ⟨{message.from_user.first_name}⟩ Welcome to this bot\n"
+        f"<b>Hi — ⟨{message.from_user.first_name}⟩ Welcome to this bot</b>\n"
         "________________________________\n\n"
         "<b><a href='https://t.me/Smart_Nexus_Bot'>Smart Nexus</a></b>: The ultimate toolkit on Telegram, offering education, AI, downloaders, temp mail, credit card tool, and more. Simplify your tasks with ease!\n\n"
-        "Don't forget to <a href='https://t.me/abir_x_official'>join</a> for updates!"
+        "<b>Don't forget to <a href='https://t.me/abir_x_official'>join</a> for updates!</b>"
     )
 
     await message.reply_text(
         start_message,
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([  # Inline keyboard for main menu
-            [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton("⚙️Main Menu", callback_data="main_menu")]
         ]),
         disable_web_page_preview=True,
     )
-
 
 @app.on_callback_query()
 async def handle_callback_query(client, callback_query):
