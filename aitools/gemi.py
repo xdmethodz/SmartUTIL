@@ -1,28 +1,28 @@
 import os
 import io
 import logging
-import PIL.Image
+from PIL import Image
 from pyrogram import Client, filters
+from pyrogram.enums import ParseMode
 from pyrogram.types import Message
 import google.generativeai as genai
-from pyrogram.enums import ParseMode
 
-# Hardcoded values
-GOOGLE_API_KEY = "AIzaSyCqSQmOL7XPlhCXrj_A6RkDI7JupBKZ58g"
-MODEL_NAME = "gemini-1.5-flash"
+# Google Api Key
+GOOGLE_API_KEY = "AIzaSyCqSQmOL7XPlhCXrj_A6RkDI7JupBKZ58g"  # Replace this with your Google API Key
+MODEL_NAME = "gemini-1.5-flash"  # Don't change this model
 
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel(MODEL_NAME)
 
-def setup_gemi_handler(app: Client):
-    @app.on_message(filters.command("gem"))
+def setup_gemi_handlers(app: Client):
+    @app.on_message(filters.command("gem") & filters.private)
     async def gemi_handler(client: Client, message: Message):
         loading_message = None
         try:
-            loading_message = await message.reply_text("**Generating response, please wait...**")
+            loading_message = await message.reply_text("**Generating response, please wait...**", parse_mode=ParseMode.MARKDOWN)
 
             if len(message.text.strip()) <= 5:
-                await message.reply_text("**Provide a prompt after the command.**")
+                await message.reply_text("**Provide a prompt after the command.**", parse_mode=ParseMode.MARKDOWN)
                 return
 
             prompt = message.text.split(maxsplit=1)[1]
@@ -32,36 +32,38 @@ def setup_gemi_handler(app: Client):
             if len(response_text) > 4000:
                 parts = [response_text[i:i + 4000] for i in range(0, len(response_text), 4000)]
                 for part in parts:
-                    await message.reply_text(part)
+                    await message.reply_text(part, parse_mode=ParseMode.MARKDOWN)
             else:
-                await message.reply_text(response_text)
+                await message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
 
         except Exception as e:
-            await message.reply_text(f"**An error occurred: {str(e)}**")
+            await message.reply_text("**An error occurred: Please try again.**", parse_mode=ParseMode.MARKDOWN)
         finally:
             if loading_message:
                 await loading_message.delete()
 
-    @app.on_message(filters.command("imgai"))
+    @app.on_message(filters.command("imgai") & filters.private)
     async def generate_from_image(client: Client, message: Message):
         if not message.reply_to_message or not message.reply_to_message.photo:
-            await message.reply_text("**Please reply to a photo for a response.**")
+            await message.reply_text("**Please reply to a photo for a response.**", parse_mode=ParseMode.MARKDOWN)
             return
 
         prompt = message.command[1] if len(message.command) > 1 else message.reply_to_message.caption or "Describe this image."
 
-        processing_message = await message.reply_text("**Generating response, please wait...**")
+        processing_message = await message.reply_text("**Generating response, please wait...**", parse_mode=ParseMode.MARKDOWN)
 
         try:
             img_data = await client.download_media(message.reply_to_message, in_memory=True)
-            img = PIL.Image.open(io.BytesIO(img_data.getbuffer()))
+            img = Image.open(io.BytesIO(img_data.getbuffer()))
 
             response = model.generate_content([prompt, img])
             response_text = response.text
 
-            await message.reply_text(response_text, parse_mode=None)
+            await message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             logging.error(f"Error during image analysis: {e}")
-            await message.reply_text("**An error occurred. Please try again.**")
+            await message.reply_text("**An error occurred. Please try again.**", parse_mode=ParseMode.MARKDOWN)
         finally:
             await processing_message.delete()
+
+# To use the handler, call setup_gemi_handlers(app) in your main script
