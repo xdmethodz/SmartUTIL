@@ -7,8 +7,8 @@ from pyrogram.enums import ParseMode
 from pyrogram.types import Message
 import google.generativeai as genai
 
-# Google Api Key
-GOOGLE_API_KEY = "AIzaSyCqSQmOL7XPlhCXrj_A6RkDI7JupBKZ58g"  # Replace this with your Google API Key
+# Google API Key
+GOOGLE_API_KEY = "AIzaSyBpzOzxP5xe3LUc8KtP6MM-3PRvtDLtNKI"  # Replace this with your Google API Key
 MODEL_NAME = "gemini-1.5-flash"  # Don't change this model
 
 # Configure the API key
@@ -26,9 +26,9 @@ def setup_gemi_handlers(app: Client):
                 return
 
             prompt = message.text.split(maxsplit=1)[1]
-            response = genai.generate_content(model=MODEL_NAME, prompt=prompt)
+            response = genai.generate_text(model=MODEL_NAME, prompt=prompt)
 
-            response_text = response['text']
+            response_text = response.result[0]['text']
             if len(response_text) > 4000:
                 parts = [response_text[i:i + 4000] for i in range(0, len(response_text), 4000)]
                 for part in parts:
@@ -37,7 +37,8 @@ def setup_gemi_handlers(app: Client):
                 await message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
 
         except Exception as e:
-            await message.reply_text("**An error occurred: Please try again.**", parse_mode=ParseMode.MARKDOWN)
+            logging.error(f"Error during text generation: {e}")
+            await message.reply_text("**An error occurred. Please try again.**", parse_mode=ParseMode.MARKDOWN)
         finally:
             if loading_message:
                 await loading_message.delete()
@@ -56,8 +57,8 @@ def setup_gemi_handlers(app: Client):
             img_data = await client.download_media(message.reply_to_message, in_memory=True)
             img = Image.open(io.BytesIO(img_data.getbuffer()))
 
-            response = genai.generate_content(model=MODEL_NAME, prompt=[prompt, img])
-            response_text = response['text']
+            response = genai.generate_text(model=MODEL_NAME, prompt=prompt, images=[img])
+            response_text = response.result[0]['text']
 
             await message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
