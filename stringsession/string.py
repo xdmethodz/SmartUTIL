@@ -1,254 +1,197 @@
-import requests 
+import os
+import logging
+from pathlib import Path
+from typing import Optional
+import aiohttp
+import re
+import json
+import yt_dlp
+import asyncio
 from pyrogram import Client, filters
+from pyrogram.types import Message
 from pyrogram.enums import ParseMode
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from telethon import TelegramClient
-from telethon.sessions import StringSession
-from pyrogram.errors import (
-    ApiIdInvalid,
-    PhoneNumberInvalid,
-    PhoneCodeInvalid,
-    PhoneCodeExpired,
-    SessionPasswordNeeded,
-    PasswordHashInvalid
+
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
 )
-from telethon.errors import (
-    ApiIdInvalidError,
-    PhoneNumberInvalidError,
-    PhoneCodeInvalidError,
-    PhoneCodeExpiredError,
-    SessionPasswordNeededError,
-    PasswordHashInvalidError
-)
-from asyncio.exceptions import TimeoutError
+logger = logging.getLogger(__name__)
 
-# Constants for timeouts
-TIMEOUT_OTP = 600  # 10 minutes
-TIMEOUT_2FA = 300  # 5 minutes
+# Configuration
+class Config:
+    TEMP_DIR = Path("temp")
+    HEADERS = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Referer': 'https://www.pinterest.com/',
+    }
 
-sessions = {}
+Config.TEMP_DIR.mkdir(exist_ok=True)
 
-def setup_string_handler(app: Client):
-    @app.on_message(filters.command("pyro") & filters.private)
-    async def pyro_command(client, message):
-        await proceed_session(client, message, telethon=False)
+class FacebookDownloader:
+    def __init__(self, temp_dir: Path):
+        self.temp_dir = temp_dir
+        yt_dlp.utils.std_headers['User-Agent'] = Config.HEADERS['User-Agent']
 
-    @app.on_message(filters.command("tele") & filters.private)
-    async def tele_command(client, message):
-        await proceed_session(client, message, telethon=True)
-
-    async def proceed_session(client, message, telethon=False):
-        session_type = "Telethon" if telethon else "Pyrogram"
-        sessions[message.chat.id] = {"type": session_type}
-        await message.reply(
-            f"**Welcome to the {session_type} session setup!**\n"
-            "**━━━━━━━━━━━━━━━━━**\n"
-            "**This is a totally safe session string generator. We don't save any info that you will provide, so this is completely safe.**\n\n"
-            "**Note: Don't send OTP directly. Otherwise, your account could be banned, or you may not be able to log in.**",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Proceed", callback_data=f"proceed_{session_type.lower()}"),
-                InlineKeyboardButton("Close", callback_data="close")
-            ]])
-        )
-
-    @app.on_callback_query(filters.regex(r"^proceed_(pyrogram|telethon)"))
-    async def on_proceed_callback(client, callback_query):
-        session_type = callback_query.data.split('_')[1]
-        await callback_query.message.edit_text(
-            "<b>Send Your API ID</b>",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("Retry", callback_data=f"retry_{session_type}"),
-                InlineKeyboardButton("Close", callback_data="close")
-            ]]),
-            parse_mode=ParseMode.HTML
-        )
-        sessions[callback_query.message.chat.id]["stage"] = "api_id"
-
-    @app.on_callback_query(filters.regex(r"^retry_(pyrogram|telethon)"))
-    async def on_retry_callback(client, callback_query):
-        session_type = callback_query.data.split('_')[1]
-        await start_session(client, callback_query.message, telethon=(session_type == "telethon"))
-
-    @app.on_callback_query(filters.regex(r"^close"))
-    async def on_close_callback(client, callback_query):
-        await callback_query.message.edit_text("Session generation process has been closed.")
-
-    @app.on_message(filters.text & filters.private)
-    async def on_text_message(client, message):
-        chat_id = message.chat.id
-        if chat_id not in sessions:
-            return
-
-        session = sessions[chat_id]
-        stage = session.get("stage")
-
-        if stage == "api_id":
-            try:
-                api_id = int(message.text)
-                session["api_id"] = api_id
-                await message.reply(
-                    "<b>Send Your API Hash</b>",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                        InlineKeyboardButton("Close", callback_data="close")
-                    ]]),
-                    parse_mode=ParseMode.HTML
-                )
-                session["stage"] = "api_hash"
-            except ValueError:
-                await message.reply("Invalid API ID. Please enter a valid integer.")
-
-        elif stage == "api_hash":
-            session["api_hash"] = message.text
-            await message.reply(
-                "<b>Send Your Phone Number\n[Example: +880xxxxxxxxxx]</b>",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close")
-                ]]),
-                parse_mode=ParseMode.HTML
-            )
-            session["stage"] = "phone_number"
-
-        elif stage == "phone_number":
-            session["phone_number"] = message.text
-            await message.reply("Sending OTP.....")
-            await send_otp(client, message)
-
-        elif stage == "otp":
-            otp = ''.join([char for char in message.text if char.isdigit()])
-            session["otp"] = otp
-            await message.reply("Validating OTP.....")
-            await validate_otp(client, message)
-
-        elif stage == "2fa":
-            session["password"] = message.text
-            await validate_2fa(client, message)
-
-    async def send_otp(client, message):
-        session = sessions[message.chat.id]
-        api_id = session["api_id"]
-        api_hash = session["api_hash"]
-        phone_number = session["phone_number"]
-        telethon = session["type"] == "Telethon"
-
-        if telethon:
-            client_obj = TelegramClient(StringSession(), api_id, api_hash)
-        else:
-            client_obj = Client(in_memory=True, api_id=api_id, api_hash=api_hash)
-
-        await client_obj.connect()
-
+    def download_video(self, url: str) -> Optional[str]:
+        self.temp_dir.mkdir(exist_ok=True)
+        ydl_opts = {
+            'format': 'best',
+            'outtmpl': os.path.join(str(self.temp_dir), '%(title)s.%(ext)s'),
+            'quiet': True,
+            'no_warnings': True,
+            'no_color': True,
+            'simulate': False,
+            'nooverwrites': True,
+        }
+        
         try:
-            if telethon:
-                code = await client_obj.send_code_request(phone_number)
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info_dict)
+                if os.path.exists(filename):
+                    return filename
+                else:
+                    return None
+        except Exception as e:
+            logger.error(f"Facebook download error: {e}")
+            return None
+
+class PinterestDownloader:
+    def __init__(self):
+        self.session = None
+        self.pin_patterns = [
+            r'/pin/(\d+)',
+            r'pin/(\d+)',
+            r'pin_id=(\d+)'
+        ]
+        
+    async def init_session(self):
+        if not self.session:
+            self.session = aiohttp.ClientSession(headers=Config.HEADERS)
+
+    async def close(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+    async def extract_pin_id(self, url: str) -> Optional[str]:
+        await self.init_session()
+        
+        if 'pin.it' in url:
+            async with self.session.head(url, allow_redirects=True) as response:
+                url = str(response.url)
+        
+        for pattern in self.pin_patterns:
+            if match := re.search(pattern, url):
+                return match.group(1)
+        return None
+
+    def get_highest_quality_image(self, image_url: str) -> str:
+        url = re.sub(r'/\d+x/|/\d+x\d+/', '/originals/', image_url)
+        url = re.sub(r'\?.+$', '', url)
+        return url
+
+    async def get_pin_data(self, pin_id: str) -> Optional[str]:
+        url = f"https://www.pinterest.com/pin/{pin_id}/"
+        
+        async with self.session.get(url) as response:
+            if response.status == 200:
+                text = await response.text()
+                video_matches = re.findall(r'"url":"([^"]*?\.mp4[^"]*)"', text)
+                if video_matches:
+                    return unquote(video_matches[0].replace('\\/', '/'))
+                image_patterns = [
+                    r'<meta property="og:image" content="([^"]+)"',
+                    r'"originImageUrl":"([^"]+)"',
+                    r'"image_url":"([^"]+)"',
+                ]
+                
+                for pattern in image_patterns:
+                    if matches := re.findall(pattern, text):
+                        for match in matches:
+                            image_url = unquote(match.replace('\\/', '/'))
+                            if any(ext in image_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.webp']):
+                                return self.get_highest_quality_image(image_url)
+        return None
+
+def setup_dl_handlers(app: Client):
+    fb_downloader = FacebookDownloader(Config.TEMP_DIR)
+    pin_downloader = PinterestDownloader()
+
+    @app.on_message(filters.command("fb") & filters.private)
+    async def fb_handler(client: Client, message: Message):
+        if len(message.command) <= 1:
+            await message.reply_text("**Please provide a Facebook video URL after the command.**", parse_mode=ParseMode.MARKDOWN)
+            return
+        
+        url = message.command[1]
+        downloading_message = await message.reply_text("`Searching The Video`", parse_mode=ParseMode.MARKDOWN)
+        
+        try:
+            filename = await asyncio.to_thread(fb_downloader.download_video, url)
+            if filename:
+                await downloading_message.edit_text("`Downloading Your Video ...`", parse_mode=ParseMode.MARKDOWN)
+                max_telegram_size = 50 * 1024 * 1024
+                
+                with open(filename, 'rb') as video_file:
+                    file_size = os.path.getsize(filename)
+                    if file_size > max_telegram_size:
+                        await message.reply_document(document=video_file, caption="Large Video")
+                    else:
+                        await message.reply_video(video=video_file, supports_streaming=True)
+                
+                await downloading_message.delete()
+                os.remove(filename)
             else:
-                code = await client_obj.send_code(phone_number)
-            session["client_obj"] = client_obj
-            session["code"] = code
-            session["stage"] = "otp"
-            await message.reply(
-                "<b>Send The OTP as text. Please send a text message embedding the OTP like: 'AB1 CD2 EF3 GH4 IJ5'</b>",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close")
-                ]]),
-                parse_mode=ParseMode.HTML
-            )
-        except (ApiIdInvalid, ApiIdInvalidError):
-            await message.reply('API_ID and API_HASH combination is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
-            ]))
-            return
-        except (PhoneNumberInvalid, PhoneNumberInvalidError):
-            await message.reply('PHONE_NUMBER is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
-            ]))
-            return
+                await downloading_message.edit_text("Could not download the video.")
+        except Exception as e:
+            logger.error(f"Error downloading Facebook video: {e}")
+            await downloading_message.edit_text("An error occurred while processing your request.")
 
-    async def validate_otp(client, message):
-        session = sessions[message.chat.id]
-        client_obj = session["client_obj"]
-        phone_number = session["phone_number"]
-        otp = session["otp"]
-        code = session["code"]
-        telethon = session["type"] == "Telethon"
-
+    @app.on_message(filters.command("pin") & filters.private)
+    async def pin_handler(client: Client, message: Message):
+        if len(message.command) <= 1:
+            await message.reply_text("**Please provide a valid Pinterest video URL.**", parse_mode=ParseMode.MARKDOWN)
+            return
+        
+        url = message.command[1]
+        downloading_message = await message.reply_text("`Searching The Video`", parse_mode=ParseMode.MARKDOWN)
+        
         try:
-            if telethon:
-                await client_obj.sign_in(phone_number, otp, password=None)
-            else:
-                await client_obj.sign_in(phone_number, code.phone_code_hash, otp)
-            await generate_session(client, message)
-        except (PhoneCodeInvalid, PhoneCodeInvalidError):
-            await message.reply('OTP is invalid. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
-            ]))
-            return
-        except (PhoneCodeExpired, PhoneCodeExpiredError):
-            await message.reply('OTP is expired. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
-            ]))
-            return
-        except (SessionPasswordNeeded, SessionPasswordNeededError):
-            session["stage"] = "2fa"
-            await message.reply(
-                "<b>2FA Is Required To Login. Please Enter 2FA</b>",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"),
-                    InlineKeyboardButton("Close", callback_data="close")
-                ]]),
-                parse_mode=ParseMode.HTML
-            )
+            pin_id = await pin_downloader.extract_pin_id(url)
+            if not pin_id:
+                await downloading_message.edit_text("Invalid Pinterest URL.")
+                return
+            
+            media_url = await pin_downloader.get_pin_data(pin_id)
+            if not media_url:
+                await downloading_message.edit_text("Could not find media in this Pinterest link.")
+                return
+            
+            await downloading_message.edit_text("`Downloading Your Video ...`", parse_mode=ParseMode.MARKDOWN)
+            file_path = Config.TEMP_DIR / f"temp_{message.chat.id}_{pin_id}"
+            file_path = file_path.with_suffix('.mp4' if media_url.endswith('.mp4') else '.jpg')
+            
+            async with pin_downloader.session.get(media_url) as response:
+                if response.status == 200:
+                    with open(file_path, 'wb') as f:
+                        while chunk := await response.content.read(8192):
+                            f.write(chunk)
+            
+            with open(file_path, 'rb') as media_file:
+                if file_path.suffix == '.mp4':
+                    await message.reply_video(video=media_file, supports_streaming=True)
+                else:
+                    await message.reply_photo(photo=media_file)
+            
+            await downloading_message.delete()
+            os.remove(file_path)
+        except Exception as e:
+            logger.error(f"Error downloading Pinterest media: {e}")
+            await downloading_message.edit_text("An error occurred while processing your request.")
 
-    async def validate_2fa(client, message):
-        session = sessions[message.chat.id]
-        client_obj = session["client_obj"]
-        password = session["password"]
-        telethon = session["type"] == "Telethon"
-
-        try:
-            if telethon:
-                await client_obj.sign_in(password=password)
-            else:
-                await client_obj.check_password(password=password)
-            await generate_session(client, message)
-        except (PasswordHashInvalid, PasswordHashInvalidError):
-            await message.reply('Invalid Password Provided. Please start generating session again.', reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Retry", callback_data=f"retry_{session['type'].lower()}"), InlineKeyboardButton("Close", callback_data="close")]
-            ]))
-            return
-
-    async def generate_session(client, message):
-        session = sessions[message.chat.id]
-        client_obj = session["client_obj"]
-        telethon = session["type"] == "Telethon"
-
-        if telethon:
-            string_session = client_obj.session.save()
-        else:
-            string_session = await client_obj.export_session_string()
-
-        text = f"**{session['type'].upper()} SESSION FROM Smart Nexus**:\n\n{string_session}"
-
-        try:
-            await client_obj.send_message("me", text)
-        except KeyError:
-            pass
-
-        await client_obj.disconnect()
-        await message.reply("<b>This string has been saved ✅ in your Saved Messages</b>", parse_mode=ParseMode.HTML)
-        del sessions[message.chat.id]
-
-    async def cancelled(message):
-        if "/cancel" in message.text:
-            await message.reply("Cancelled the Process!", quote=True)
-            return True
-        elif "/restart" in message.text:
-            await message.reply("Restarted the Bot!", quote=True)
-            return True
-        elif message.text.startswith("/"):  # Bot Commands
-            await message.reply("Cancelled the process!", quote=True)
-            return True
-        else:
-            return False
+# To use the handler, call setup_dl_handlers(app) in your main script
