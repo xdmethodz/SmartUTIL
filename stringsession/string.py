@@ -138,7 +138,7 @@ async def upload_with_progress(bot, chat_id, file_path, caption, message):
     start_time = time.time()
     uploaded = 0
 
-    def progress(current, total):
+    async def progress(current, total):
         nonlocal uploaded
         uploaded += current
         percent = int((uploaded / file_size) * 100)
@@ -147,10 +147,10 @@ async def upload_with_progress(bot, chat_id, file_path, caption, message):
         speed_kb = speed / 1024
         progress_bar = '▓' * (percent // 5) + '░' * (20 - (percent // 5))
         status = f"{uploaded / 1024:.2f} KB of {file_size / 1024:.2f} KB"
-        asyncio.run(progress_message.edit_text(
+        await progress_message.edit_text(
             f"📥 Upload Progress 📥\n\n{progress_bar}\n\n🚧 PC: {percent}%\n⚡️ Speed: {speed_kb:.2f} KB/s\n📶 Status: {status}", 
             parse_mode=ParseMode.MARKDOWN
-        ))
+        )
 
     with open(file_path, 'rb') as f:
         await bot.send_video(chat_id, video=f, caption=caption, supports_streaming=True, parse_mode=ParseMode.MARKDOWN, progress=progress)
