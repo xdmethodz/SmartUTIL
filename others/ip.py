@@ -23,7 +23,7 @@ def get_ip_info(ip: str) -> str:
     risk_level = "low" if fraud_score < 50 else "high"
 
     details = (
-        f"YOUR IP INFORMATION 🌐\n"
+        f"**YOUR IP INFORMATION 🌐**\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"**IP:** `{ip}`\n"
         f"**ASN:** `{asn}`\n"
@@ -39,10 +39,12 @@ def get_ip_info(ip: str) -> str:
 
 async def ip_info_handler(client: Client, message: Message):
     if len(message.command) <= 1:
-        await message.reply_text("**❌ Please provide a single IP address.**", parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text("**❌ Please provide a single IP address.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         return
 
     ip = message.command[1]
+    fetching_msg = await message.reply_text("**Fetching IP Info Please Wait.....**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    
     details = get_ip_info(ip)
 
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
@@ -50,7 +52,8 @@ async def ip_info_handler(client: Client, message: Message):
 
     details += f"**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
 
-    await message.reply_text(details, parse_mode=ParseMode.MARKDOWN)
+    await fetching_msg.delete()
+    await message.reply_text(details, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
 def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ip") & filters.private)
