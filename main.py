@@ -76,24 +76,24 @@ async def send_start_message(client, message):
 
     # Animation messages
     animation_message = await message.reply_text("<b>Starting Smart Nexus...</b>", parse_mode=ParseMode.HTML)
-    time.sleep(0.4)
+    await asyncio.sleep(0.4)  # Use asyncio.sleep instead of sleep
     await animation_message.edit_text("<b>Preparing Your Experience Please Wait...</b>", parse_mode=ParseMode.HTML)
-    time.sleep(0.4)
+    await asyncio.sleep(0.4)  # Use asyncio.sleep instead of sleep
     await animation_message.delete()
 
     # Main welcome message
     start_message = (
-        f"Hi — ⟨{message.from_user.first_name}⟩ Welcome to this bot\n"
+        f"<b>Hi — ⟨{message.from_user.first_name}⟩ Welcome to this bot</b>\n"
         "________________________________\n\n"
         "<b><a href='https://t.me/Smart_Nexus_Bot'>Smart Nexus</a></b>: The ultimate toolkit on Telegram, offering education, AI, downloaders, temp mail, credit card tool, and more. Simplify your tasks with ease!\n\n"
-        "Don't forget to <a href='https://t.me/abir_x_official'>join</a> for updates!"
+        "<b>Don't forget to <a href='https://t.me/abir_x_official'>join</a> for updates!</b>"
     )
 
     await message.reply_text(
         start_message,
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([  # Inline keyboard for main menu
-            [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton("⚙️Main Menu", callback_data="main_menu")]
         ]),
         disable_web_page_preview=True,
     )
