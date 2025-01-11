@@ -35,7 +35,6 @@ setup_privacy_handler(app)
 setup_yth_handler(app)
 setup_info_handler(app)
 setup_time_handler (app)
-setup_privacy_handler(app)
 setup_binance_handler(app)
 setup_temp_mail_handler(app)
 setup_crypto_handler(app)
@@ -77,9 +76,9 @@ async def send_start_message(client, message):
 
     # Animation messages
     animation_message = await message.reply_text("<b>Starting Smart Nexus...</b>", parse_mode=ParseMode.HTML)
-    await asyncio.sleep(0.4)  # Replaced time.sleep with asyncio.sleep
+    time.sleep(0.4)
     await animation_message.edit_text("<b>Preparing Your Experience Please Wait...</b>", parse_mode=ParseMode.HTML)
-    await asyncio.sleep(0.4)  # Replaced time.sleep with asyncio.sleep
+    time.sleep(0.4)
     await animation_message.delete()
 
     # Main welcome message
@@ -94,7 +93,7 @@ async def send_start_message(client, message):
         start_message,
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup([  # Inline keyboard for main menu
-            [InlineKeyboardButton("⚙️Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton("Main Menu", callback_data="main_menu")]
         ]),
         disable_web_page_preview=True,
     )
