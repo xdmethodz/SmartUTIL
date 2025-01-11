@@ -10,6 +10,7 @@ import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import ParseMode
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +37,7 @@ class FacebookDownloader:
         self.temp_dir = temp_dir
         yt_dlp.utils.std_headers['User-Agent'] = Config.HEADERS['User-Agent']
 
-    def download_video(self, url: str) -> Optional[str]:
+    def download_video(self, url: str) -> Optional[dict]:
         self.temp_dir.mkdir(exist_ok=True)
         ydl_opts = {
             'format': 'best',
@@ -53,7 +54,12 @@ class FacebookDownloader:
                 info_dict = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info_dict)
                 if os.path.exists(filename):
-                    return filename
+                    return {
+                        'filename': filename,
+                        'title': info_dict.get('title', 'No title'),
+                        'duration': info_dict.get('duration', 'Unknown'),
+                        'file_size': os.path.getsize(filename)
+                    }
                 else:
                     return None
         except Exception as e:
@@ -95,7 +101,7 @@ class PinterestDownloader:
         url = re.sub(r'\?.+$', '', url)
         return url
 
-    async def get_pin_data(self, pin_id: str) -> Optional[str]:
+    async def get_pin_data(self, pin_id: str) -> Optional[dict]:
         url = f"https://www.pinterest.com/pin/{pin_id}/"
         
         async with self.session.get(url) as response:
@@ -103,7 +109,10 @@ class PinterestDownloader:
                 text = await response.text()
                 video_matches = re.findall(r'"url":"([^"]*?\.mp4[^"]*)"', text)
                 if video_matches:
-                    return unquote(video_matches[0].replace('\\/', '/'))
+                    return {
+                        'url': unquote(video_matches[0].replace('\\/', '/')),
+                        'title': 'Pinterest Video'
+                    }
                 image_patterns = [
                     r'<meta property="og:image" content="([^"]+)"',
                     r'"originImageUrl":"([^"]+)"',
@@ -115,8 +124,38 @@ class PinterestDownloader:
                         for match in matches:
                             image_url = unquote(match.replace('\\/', '/'))
                             if any(ext in image_url.lower() for ext in ['.jpg', '.jpeg', '.png', '.webp']):
-                                return self.get_highest_quality_image(image_url)
+                                return {
+                                    'url': self.get_highest_quality_image(image_url),
+                                    'title': 'Pinterest Image'
+                                }
         return None
+
+async def upload_with_progress(bot, chat_id, file_path, caption, message):
+    file_size = os.path.getsize(file_path)
+    chunk_size = 1024 * 1024  # 1 MB
+    progress_message = await bot.send_message(chat_id, "📥 Upload Progress 📥\n\n▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓\n\n🚧 PC: 0%\n⚡️ Speed: 0 KB/s\n📶 Status: 0 KB of 0 KB", parse_mode=ParseMode.MARKDOWN)
+    
+    start_time = time.time()
+    uploaded = 0
+
+    def progress(current, total):
+        nonlocal uploaded
+        uploaded += current
+        percent = int((uploaded / file_size) * 100)
+        elapsed_time = time.time() - start_time
+        speed = uploaded / elapsed_time
+        speed_kb = speed / 1024
+        progress_bar = '▓' * (percent // 5) + '░' * (20 - (percent // 5))
+        status = f"{uploaded / 1024:.2f} KB of {file_size / 1024:.2f} KB"
+        asyncio.run(progress_message.edit_text(
+            f"📥 Upload Progress 📥\n\n{progress_bar}\n\n🚧 PC: {percent}%\n⚡️ Speed: {speed_kb:.2f} KB/s\n📶 Status: {status}", 
+            parse_mode=ParseMode.MARKDOWN
+        ))
+
+    with open(file_path, 'rb') as f:
+        await bot.send_video(chat_id, video=f, caption=caption, supports_streaming=True, parse_mode=ParseMode.MARKDOWN, progress=progress)
+    
+    await progress_message.delete()
 
 def setup_dl_handlers(app: Client):
     fb_downloader = FacebookDownloader(Config.TEMP_DIR)
@@ -132,19 +171,21 @@ def setup_dl_handlers(app: Client):
         downloading_message = await message.reply_text("`Searching The Video`", parse_mode=ParseMode.MARKDOWN)
         
         try:
-            filename = await asyncio.to_thread(fb_downloader.download_video, url)
-            if filename:
+            media_info = await asyncio.to_thread(fb_downloader.download_video, url)
+            if media_info:
                 await downloading_message.edit_text("`Downloading Your Video ...`", parse_mode=ParseMode.MARKDOWN)
-                max_telegram_size = 50 * 1024 * 1024
+                filename = media_info['filename']
+                title = media_info['title']
+                duration = media_info['duration']
+                file_size = media_info['file_size'] / (1024 * 1024)  # Convert to MB
                 
-                with open(filename, 'rb') as video_file:
-                    file_size = os.path.getsize(filename)
-                    if file_size > max_telegram_size:
-                        await message.reply_document(document=video_file, caption="Large Video")
-                    else:
-                        await message.reply_video(video=video_file, supports_streaming=True)
+                caption = (
+                    f"🎥 Title: `{title}`\n"
+                    f"⏱ Duration: `{duration}` seconds\n"
+                    f"📦 File Size: `{file_size:.2f} MB`"
+                )
                 
-                await downloading_message.delete()
+                await upload_with_progress(client, message.chat.id, filename, caption, downloading_message)
                 os.remove(filename)
             else:
                 await downloading_message.edit_text("Could not download the video.")
@@ -167,12 +208,14 @@ def setup_dl_handlers(app: Client):
                 await downloading_message.edit_text("Invalid Pinterest URL.")
                 return
             
-            media_url = await pin_downloader.get_pin_data(pin_id)
-            if not media_url:
+            media_info = await pin_downloader.get_pin_data(pin_id)
+            if not media_info:
                 await downloading_message.edit_text("Could not find media in this Pinterest link.")
                 return
             
             await downloading_message.edit_text("`Downloading Your Video ...`", parse_mode=ParseMode.MARKDOWN)
+            media_url = media_info['url']
+            title = media_info['title']
             file_path = Config.TEMP_DIR / f"temp_{message.chat.id}_{pin_id}"
             file_path = file_path.with_suffix('.mp4' if media_url.endswith('.mp4') else '.jpg')
             
@@ -182,13 +225,16 @@ def setup_dl_handlers(app: Client):
                         while chunk := await response.content.read(8192):
                             f.write(chunk)
             
-            with open(file_path, 'rb') as media_file:
-                if file_path.suffix == '.mp4':
-                    await message.reply_video(video=media_file, supports_streaming=True)
-                else:
-                    await message.reply_photo(photo=media_file)
+            file_size = os.path.getsize(file_path) / (1024 * 1024)  # Convert to MB
+            duration = 'Unknown'  # Pinterest does not provide duration
             
-            await downloading_message.delete()
+            caption = (
+                f"🎥 Title: `{title}`\n"
+                f"⏱ Duration: `{duration}`\n"
+                f"📦 File Size: `{file_size:.2f} MB`"
+            )
+            
+            await upload_with_progress(client, message.chat.id, file_path, caption, downloading_message)
             os.remove(file_path)
         except Exception as e:
             logger.error(f"Error downloading Pinterest media: {e}")
