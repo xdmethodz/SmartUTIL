@@ -1,4 +1,4 @@
-import requests
+import requests  # Correct import here
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import ParseMode
@@ -139,7 +139,7 @@ def walker(keyword):
     url = 'https://www.youtube.com/results?{}'.format(par.urlencode(search))
     
     # Fetch the search results page
-    content = req.get(url)
+    content = requests.get(url)
     soup = BeautifulSoup(content.content, 'html.parser')
     
     # Find all video links on the search results page
@@ -150,7 +150,7 @@ def walker(keyword):
 
 def tag_extractor(url):
     # Fetch the video page
-    content = req.get(url)
+    content = requests.get(url)
     soup = BeautifulSoup(content.content, 'html.parser')
     
     # Extract the tags from the video page
@@ -356,4 +356,3 @@ def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("skinfo") & filters.private)
     async def stripe_key_info(client: Client, message: Message):
         await stripe_key_info_handler(client, message)
-
