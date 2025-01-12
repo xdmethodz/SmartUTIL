@@ -6,7 +6,10 @@ from PIL import Image
 import pytesseract
 import io
 from bs4 import BeautifulSoup
+import json
+import urllib.parse as par
 
+# Function to get IP information
 def get_ip_info(ip: str) -> str:
     url = f"https://ipinfo.io/{ip}/json"
     response = requests.get(url)
@@ -41,6 +44,7 @@ def get_ip_info(ip: str) -> str:
 
     return details
 
+# Function to get domain information
 def get_domain_info(domain: str) -> str:
     url = f"https://api.domainsdb.info/v1/domains/search?domain={domain}"
     response = requests.get(url)
@@ -69,6 +73,7 @@ def get_domain_info(domain: str) -> str:
 
     return details
 
+# Function to check proxy status
 def check_proxy(proxy: str, auth: tuple = None) -> str:
     url = "http://ipinfo.io/json"
     proxies = {
@@ -104,26 +109,126 @@ def check_proxy(proxy: str, auth: tuple = None) -> str:
             f"━━━━━━━━━━━━━━━━━━\n"
         )
 
-def get_youtube_video_tags(url: str) -> str:
-    response = requests.get(url)
+# Function to extract text from an image using OCR
+async def ocr_handler(client: Client, message: Message):
+    if not message.reply_to_message or not message.reply_to_message.photo:
+        await message.reply_text("**❌ Please reply to an image with this command to extract text.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    
+    photo = await message.reply_to_message.download()
+    img = Image.open(photo)
+    text = pytesseract.image_to_string(img, lang='eng')
+
+    user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
+    user_profile_link = f"https://t.me/{message.from_user.username}"
+
+    if not text.strip():
+        response = f"**No readable text found in the image**\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
+    else:
+        text = f"```\n{text}\n```"  # Convert text to code format
+        response = f"**Here's the Extracted Text:**\n━━━━━━━━━━━━━━━━\n{text}\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
+
+    await fetching_msg.delete()
+    await message.reply_text(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+# Function to extract YouTube video tags
+def walker(keyword):    
+    search = {'search_query': keyword}
+    url = 'https://www.youtube.com/results?{}'.format(par.urlencode(search))
+    
+    # Fetch the search results page
+    content = req.get(url)
+    soup = BeautifulSoup(content.content, 'html.parser')
+    
+    # Find all video links on the search results page
+    a_tags = soup.findAll("a", attrs={"class": "yt-uix-sessionlink spf-link", "aria-hidden": "true"})
+    for tag in a_tags:
+        if "/watch" in tag['href']:
+            yield tag['href']
+
+def tag_extractor(url):
+    # Fetch the video page
+    content = req.get(url)
+    soup = BeautifulSoup(content.content, 'html.parser')
+    
+    # Extract the tags from the video page
+    for script in soup.findAll('script'):
+        if 'keywords' in str(script):    
+            start_ind = str(script).index('keywords')
+            start_ind += 10
+            rest_out = str(str(script)[start_ind:])
+            end_ind = rest_out.index(']')
+            final = rest_out[:end_ind+1]
+            final = final.replace('\\', '')
+            final = final.replace(':', '')
+            return json.loads(final)
+
+async def ytag_handler(client: Client, message: Message):
+    if len(message.command) <= 1:
+        await message.reply_text("**Please provide a URL. Usage: /ytag [URL]**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    keyword = message.command[1]
+    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    
+    final = []
+    for link in walker(keyword):
+        url = 'https://www.youtube.com' + link
+        out = tag_extractor(url)
+        if out is not None:
+            final += out
+
+    if not final:
+        response = "**Sorry No Tags Available For This Video**"
+    else:
+        tags_str = "\n".join([f"`{tag}`" for tag in final])
+        response = f"**Your Requested Video Tags ✅**\n━━━━━━━━━━━━━━━━\n{tags_str}"
+
+    await fetching_msg.delete()
+    await message.reply_text(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+# Function to verify a Stripe key
+def verify_stripe_key(stripe_key: str) -> str:
+    url = "https://api.stripe.com/v1/account"
+    headers = {
+        "Authorization": f"Bearer {stripe_key}"
+    }
+    response = requests.get(url, headers=headers)
+    
+    if response.status_code == 200:
+        return "**The Stripe key is live.**"
+    else:
+        return "**The Stripe key is dead.**"
+
+# Function to get information about a Stripe key
+def get_stripe_key_info(stripe_key: str) -> str:
+    url = "https://api.stripe.com/v1/account"
+    headers = {
+        "Authorization": f"Bearer {stripe_key}"
+    }
+    response = requests.get(url, headers=headers)
+    
     if response.status_code != 200:
-        return "**Sorry No Tags Available For This Video**"
-
-    soup = BeautifulSoup(response.text, 'html.parser')
+        return "**Unable to retrieve information for the provided Stripe key.**"
     
-    # Extract tags from the meta tags
-    meta_tags = soup.find_all('meta')
-    tags = []
-    for meta in meta_tags:
-        if meta.get('property') == 'og:video:tag':
-            tags.append(meta.get('content'))
-    
-    if not tags:
-        return "**Sorry No Tags Available For This Video**"
+    data = response.json()
+    details = (
+        f"**Stripe Key Information:**\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"**ID:** `{data.get('id', 'N/A')}`\n"
+        f"**Email:** `{data.get('email', 'N/A')}`\n"
+        f"**Country:** `{data.get('country', 'N/A')}`\n"
+        f"**Business Name:** `{data.get('business_name', 'N/A')}`\n"
+        f"**Type:** `{data.get('type', 'N/A')}`\n"
+        f"**Payouts Enabled:** `{data.get('payouts_enabled', 'N/A')}`\n"
+        f"**Details Submitted:** `{data.get('details_submitted', 'N/A')}`\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+    )
+    return details
 
-    tags_str = "\n".join([f"`{tag}`" for tag in tags])
-    return f"**Your Requested Video Tags ✅**\n━━━━━━━━━━━━━━━━\n{tags_str}"
-
+# Handlers for the Pyrogram bot
 async def ip_info_handler(client: Client, message: Message):
     if len(message.command) <= 1:
         await message.reply_text("**❌ Please provide a single IP address.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -196,42 +301,33 @@ async def proxy_info_handler(client: Client, message: Message):
     await fetching_msg.delete()
     await message.reply_text(details_combined, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
-async def ocr_handler(client: Client, message: Message):
-    if not message.reply_to_message or not message.reply_to_message.photo:
-        await message.reply_text("**❌ Please reply to an image with this command to extract text.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
-        return
-
-    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
-    
-    photo = await message.reply_to_message.download()
-    img = Image.open(photo)
-    text = pytesseract.image_to_string(img, lang='eng')
-
-    user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
-    user_profile_link = f"https://t.me/{message.from_user.username}"
-
-    if not text.strip():
-        response = f"**No readable text found in the image**\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
-    else:
-        text = f"```\n{text}\n```"  # Convert text to code format
-        response = f"**Here's the Extracted Text:**\n━━━━━━━━━━━━━━━━\n{text}\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
-
-    await fetching_msg.delete()
-    await message.reply_text(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
-
-async def ytag_handler(client: Client, message: Message):
+async def stripe_key_handler(client: Client, message: Message):
     if len(message.command) <= 1:
-        await message.reply_text("**Please provide a URL. Usage: /ytag [URL]**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        await message.reply_text("**Please provide a Stripe key. Usage: /sk [Stripe Key]**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         return
 
-    url = message.command[1]
+    stripe_key = message.command[1]
     fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
     
-    tags = get_youtube_video_tags(url)
+    result = verify_stripe_key(stripe_key)
 
     await fetching_msg.delete()
-    await message.reply_text(tags, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    await message.reply_text(result, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
+async def stripe_key_info_handler(client: Client, message: Message):
+    if len(message.command) <= 1:
+        await message.reply_text("**Please provide a Stripe key. Usage: /skinfo [Stripe Key]**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    stripe_key = message.command[1]
+    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    
+    result = get_stripe_key_info(stripe_key)
+
+    await fetching_msg.delete()
+    await message.reply_text(result, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+# Function to set up handlers for the Pyrogram bot
 def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ip") & filters.private)
     async def ip_info(client: Client, message: Message):
@@ -253,4 +349,11 @@ def setup_ip_handlers(app: Client):
     async def ytag_info(client: Client, message: Message):
         await ytag_handler(client, message)
 
-# To use the handler, call setup_ip_handlers(app) in your main script
+    @app.on_message(filters.command("sk") & filters.private)
+    async def stripe_key(client: Client, message: Message):
+        await stripe_key_handler(client, message)
+
+    @app.on_message(filters.command("skinfo") & filters.private)
+    async def stripe_key_info(client: Client, message: Message):
+        await stripe_key_info_handler(client, message)
+
