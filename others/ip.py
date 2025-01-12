@@ -38,6 +38,10 @@ def get_ip_info(ip: str) -> str:
     return details
 
 def get_domain_info(domain: str) -> str:
+    # Remove the URL scheme (e.g., http://, https://) from the domain if present
+    if domain.startswith(('http://', 'https://')):
+        domain = domain.split('//')[1]
+
     url = f"https://api.whois.vu/?q={domain}"
     response = requests.get(url)
 
@@ -116,12 +120,3 @@ def setup_ip_handlers(app: Client):
         await domain_info_handler(client, message)
 
 # To use the handler, call setup_ip_handlers(app) in your main script
-
-if __name__ == "__main__":
-    api_id = "YOUR_API_ID"  # Replace with your API ID
-    api_hash = "YOUR_API_HASH"  # Replace with your API Hash
-    bot_token = "YOUR_BOT_TOKEN"  # Replace with your bot token
-
-    app = Client("info_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
-    setup_ip_handlers(app)
-    app.run()
