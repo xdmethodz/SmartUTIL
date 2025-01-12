@@ -53,7 +53,7 @@ def get_domain_info(domain: str) -> str:
     registrar = domain_info.get("registrar", "Unknown")
     registration = domain_info.get("creation_date", "Unknown")
     expiration = domain_info.get("expiry_date", "Unknown")
-    domain_available = "✅" if domain_info.get("status", "available") == "available" else "❌"
+    domain_available = "❌" if "registered" in domain_info.get("status", "") else "✅"
 
     details = (
         f"**Domain:** `{domain_name}`\n"
@@ -78,7 +78,7 @@ async def ip_info_handler(client: Client, message: Message):
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
     user_profile_link = f"https://t.me/{message.from_user.username}"
 
-    details += f"**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
+    details += f"\n**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
     await message.reply_text(details, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -116,3 +116,12 @@ def setup_ip_handlers(app: Client):
         await domain_info_handler(client, message)
 
 # To use the handler, call setup_ip_handlers(app) in your main script
+
+if __name__ == "__main__":
+    api_id = "YOUR_API_ID"  # Replace with your API ID
+    api_hash = "YOUR_API_HASH"  # Replace with your API Hash
+    bot_token = "YOUR_BOT_TOKEN"  # Replace with your bot token
+
+    app = Client("info_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+    setup_ip_handlers(app)
+    app.run()
