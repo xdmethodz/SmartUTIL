@@ -110,12 +110,17 @@ def get_youtube_video_tags(url: str) -> str:
         return "**Sorry No Tags Available For This Video**"
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    meta_tags = soup.find_all('meta', {'property': 'og:video:tag'})
-
-    if not meta_tags:
+    
+    # Extract tags from the meta tags
+    meta_tags = soup.find_all('meta')
+    tags = []
+    for meta in meta_tags:
+        if meta.get('property') == 'og:video:tag':
+            tags.append(meta.get('content'))
+    
+    if not tags:
         return "**Sorry No Tags Available For This Video**"
 
-    tags = [meta['content'] for meta in meta_tags]
     tags_str = "\n".join([f"`{tag}`" for tag in tags])
     return f"**Your Requested Video Tags ✅**\n━━━━━━━━━━━━━━━━\n{tags_str}"
 
