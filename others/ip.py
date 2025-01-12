@@ -5,6 +5,10 @@ from pyrogram.enums import ParseMode
 from PIL import Image
 import pytesseract
 import io
+from googleapiclient.discovery import build
+
+# Replace with your YouTube Data API key
+YOUTUBE_API_KEY = 'YOUR_YOUTUBE_API_KEY'
 
 def get_ip_info(ip: str) -> str:
     url = f"https://ipinfo.io/{ip}/json"
@@ -103,6 +107,22 @@ def check_proxy(proxy: str, auth: tuple = None) -> str:
             f"━━━━━━━━━━━━━━━━━━\n"
         )
 
+def get_youtube_video_tags(url: str) -> str:
+    video_id = url.split("v=")[-1].split("&")[0]
+    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
+    request = youtube.videos().list(part="snippet", id=video_id)
+    response = request.execute()
+
+    if "items" not in response or not response["items"]:
+        return "Sorry No Tags Available For This Video"
+
+    tags = response["items"][0]["snippet"].get("tags", [])
+    if not tags:
+        return "Sorry No Tags Available For This Video"
+
+    tags_str = "\n".join([f"`{tag}`" for tag in tags])
+    return f"**Your Requested Video Tags ✅**\n━━━━━━━━━━━━━━━━\n{tags_str}"
+
 async def ip_info_handler(client: Client, message: Message):
     if len(message.command) <= 1:
         await message.reply_text("**❌ Please provide a single IP address.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -198,6 +218,19 @@ async def ocr_handler(client: Client, message: Message):
     await fetching_msg.delete()
     await message.reply_text(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
+async def ytag_handler(client: Client, message: Message):
+    if len(message.command) <= 1:
+        await message.reply_text("**Please provide a URL. Usage: /ytag [URL]**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    url = message.command[1]
+    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    
+    tags = get_youtube_video_tags(url)
+
+    await fetching_msg.delete()
+    await message.reply_text(tags, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
 def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ip") & filters.private)
     async def ip_info(client: Client, message: Message):
@@ -214,5 +247,9 @@ def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ocr") & filters.private)
     async def ocr_extract(client: Client, message: Message):
         await ocr_handler(client, message)
+
+    @app.on_message(filters.command("ytag") & filters.private)
+    async def ytag_info(client: Client, message: Message):
+        await ytag_handler(client, message)
 
 # To use the handler, call setup_ip_handlers(app) in your main script
