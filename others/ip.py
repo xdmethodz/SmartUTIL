@@ -65,6 +65,21 @@ def get_domain_info(domain: str) -> str:
 
     return details
 
+def check_proxy(proxy: str, auth: tuple = None) -> str:
+    url = "http://httpbin.org/ip"
+    proxies = {
+        "http": f"http://{proxy}",
+        "https": f"https://{proxy}",
+    }
+    try:
+        response = requests.get(url, proxies=proxies, auth=auth, timeout=10)
+        if response.status_code == 200:
+            return f"✅ Proxy {proxy} is valid."
+        else:
+            return f"❌ Proxy {proxy} is invalid. Status Code: {response.status_code}"
+    except requests.RequestException as e:
+        return f"❌ Proxy {proxy} is invalid. Error: {str(e)}"
+
 async def ip_info_handler(client: Client, message: Message):
     if len(message.command) <= 1:
         await message.reply_text("**❌ Please provide a single IP address.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -106,6 +121,37 @@ async def domain_info_handler(client: Client, message: Message):
     await fetching_msg.delete()
     await message.reply_text(details_combined, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
+async def proxy_info_handler(client: Client, message: Message):
+    if len(message.command) <= 1:
+        await message.reply_text("**❌ Please provide at least one proxy.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    proxies = message.command[1:]
+    auth = None
+
+    if len(proxies) >= 3 and ':' not in proxies[-1]:
+        user = proxies[-2]
+        password = proxies[-1]
+        auth = (user, password)
+        proxies = proxies[:-2]
+
+    fetching_msg = await message.reply_text("**Checking Proxies Please Wait.....**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
+    details_list = []
+    for proxy in proxies:
+        details = check_proxy(proxy, auth)
+        details_list.append(details)
+    
+    details_combined = "\n".join(details_list)
+
+    user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
+    user_profile_link = f"https://t.me/{message.from_user.username}"
+
+    details_combined += f"\n**Proxies Checked By:** [{user_full_name}]({user_profile_link})"
+
+    await fetching_msg.delete()
+    await message.reply_text(details_combined, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+
 def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ip") & filters.private)
     async def ip_info(client: Client, message: Message):
@@ -115,4 +161,9 @@ def setup_ip_handlers(app: Client):
     async def domain_info(client: Client, message: Message):
         await domain_info_handler(client, message)
 
+    @app.on_message(filters.command("px") & filters.private)
+    async def proxy_info(client: Client, message: Message):
+        await proxy_info_handler(client, message)
+
 # To use the handler, call setup_ip_handlers(app) in your main script
+
