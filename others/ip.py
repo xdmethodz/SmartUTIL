@@ -66,7 +66,7 @@ def get_domain_info(domain: str) -> str:
     return details
 
 def check_proxy(proxy: str, auth: tuple = None) -> str:
-    url = "http://httpbin.org/ip"
+    url = "http://ipinfo.io/json"
     proxies = {
         "http": f"http://{proxy}",
         "https": f"https://{proxy}",
@@ -74,11 +74,31 @@ def check_proxy(proxy: str, auth: tuple = None) -> str:
     try:
         response = requests.get(url, proxies=proxies, auth=auth, timeout=10)
         if response.status_code == 200:
-            return f"✅ Proxy {proxy} is valid."
+            data = response.json()
+            region = data.get("region", "Unknown")
+            return (
+                f"**Proxy:** `{proxy}`\n"
+                f"**Type:** `HTTP/HTTPS`\n"
+                f"**Status:** ☑️ `Alive`\n"
+                f"**Region:** `{region}`\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+            )
         else:
-            return f"❌ Proxy {proxy} is invalid. Status Code: {response.status_code}"
+            return (
+                f"**Proxy:** `{proxy}`\n"
+                f"**Type:** `HTTP/HTTPS`\n"
+                f"**Status:** 🔴 `Dead`\n"
+                f"**Region:** `Unknown`\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+            )
     except requests.RequestException as e:
-        return f"❌ Proxy {proxy} is invalid. Error: {str(e)}"
+        return (
+            f"**Proxy:** `{proxy}`\n"
+            f"**Type:** `HTTP/HTTPS`\n"
+            f"**Status:** 🔴 `Dead`\n"
+            f"**Region:** `Unknown`\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+        )
 
 async def ip_info_handler(client: Client, message: Message):
     if len(message.command) <= 1:
@@ -166,4 +186,3 @@ def setup_ip_handlers(app: Client):
         await proxy_info_handler(client, message)
 
 # To use the handler, call setup_ip_handlers(app) in your main script
-
