@@ -7,6 +7,4 @@ pycountry==22.3.5
 beautifulsoup4==4.11.1
 faker==18.9.0
 tgcrypto==1.2.3
-aiohttp==3.8.1
-yt-dlp==2024.12.23 # Ensure this is the latest version
-ffmpeg
+pytesseract
