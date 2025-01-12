@@ -16,6 +16,7 @@ from others.fake import setup_fake_handler
 from educationutils.education import setup_education_handler
 from aitools.gpt import setup_gpt_handlers 
 from others.ip import setup_ip_handlers
+from others.no import setup_no_handlers
 # Replace these with your actual API details
 API_ID = "24602058"  # Replace with your API ID
 API_HASH = "b976a44ccb8962b20113113f84aeebf6"  # Replace with your API Hash
@@ -42,6 +43,7 @@ setup_fake_handler(app)
 setup_education_handler(app)
 setup_gpt_handlers(app)
 setup_ip_handlers(app)
+setup_no_handlers(app)
 # Inline keyboard for the main menu
 main_menu_keyboard = InlineKeyboardMarkup([
     [
