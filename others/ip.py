@@ -192,7 +192,7 @@ async def ocr_handler(client: Client, message: Message):
     if not text.strip():
         response = f"**No readable text found in the image**\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
     else:
-        text = f"```\n{text}\n```"  # Convert text to monospace format
+        text = f"```\n{text}\n```"  # Convert text to code format
         response = f"**Here's the Extracted Text:**\n━━━━━━━━━━━━━━━━\n{text}\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
