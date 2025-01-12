@@ -38,22 +38,22 @@ def get_ip_info(ip: str) -> str:
     return details
 
 def get_domain_info(domain: str) -> str:
-    url = f"https://api.domainsdb.info/v1/domains/search?domain={domain}"
+    url = f"https://api.whois.vu/?q={domain}"
     response = requests.get(url)
 
     if response.status_code != 200:
         return f"Invalid domain name: {domain}"
 
     data = response.json()
-    if "domains" not in data or not data["domains"]:
+    if "data" not in data or not data["data"]:
         return f"Invalid domain name: {domain}"
 
-    domain_info = data["domains"][0]
-    domain_name = domain_info.get("domain", "Unknown")
+    domain_info = data["data"]
+    domain_name = domain_info.get("domain_name", "Unknown")
     registrar = domain_info.get("registrar", "Unknown")
-    registration = domain_info.get("create_date", "Unknown")
-    expiration = domain_info.get("update_date", "Unknown")
-    domain_available = "✅" if domain_info.get("isDead", False) else "❌"
+    registration = domain_info.get("creation_date", "Unknown")
+    expiration = domain_info.get("expiry_date", "Unknown")
+    domain_available = "✅" if domain_info.get("status", "available") == "available" else "❌"
 
     details = (
         f"**Domain:** `{domain_name}`\n"
@@ -116,4 +116,3 @@ def setup_ip_handlers(app: Client):
         await domain_info_handler(client, message)
 
 # To use the handler, call setup_ip_handlers(app) in your main script
-
