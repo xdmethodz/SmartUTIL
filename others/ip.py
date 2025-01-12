@@ -116,7 +116,7 @@ async def ip_info_handler(client: Client, message: Message):
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
     user_profile_link = f"https://t.me/{message.from_user.username}"
 
-    details += f"\n**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
+    details += f"**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
     await message.reply_text(details, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -200,19 +200,19 @@ async def ocr_handler(client: Client, message: Message):
     await message.reply_text(f"**Extracted Text:**\n{text}", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
 def setup_ip_handlers(app: Client):
-    @app.on_message(filters.command("ip") & (filters.private | filters.group))
+    @app.on_message(filters.command("ip") & filters.private)
     async def ip_info(client: Client, message: Message):
         await ip_info_handler(client, message)
 
-    @app.on_message(filters.command("dmn") & (filters.private | filters.group))
+    @app.on_message(filters.command("dmn") & filters.private)
     async def domain_info(client: Client, message: Message):
         await domain_info_handler(client, message)
 
-    @app.on_message(filters.command("px") & (filters.private | filters.group))
+    @app.on_message(filters.command("px") & filters.private)
     async def proxy_info(client: Client, message: Message):
         await proxy_info_handler(client, message)
 
-    @app.on_message(filters.command("ocr") & (filters.private | filters.group))
+    @app.on_message(filters.command("ocr") & filters.private)
     async def ocr_extract(client: Client, message: Message):
         await ocr_handler(client, message)
 
