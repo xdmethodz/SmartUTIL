@@ -116,7 +116,7 @@ async def ip_info_handler(client: Client, message: Message):
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
     user_profile_link = f"https://t.me/{message.from_user.username}"
 
-    details += f"**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
+    details += f"\n**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
     await message.reply_text(details, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
@@ -180,24 +180,23 @@ async def ocr_handler(client: Client, message: Message):
         await message.reply_text("**❌ Please reply to an image with this command to extract text.**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         return
 
-    fetching_msg = await message.reply_text("**Extracting Text from Image Please Wait.....**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    fetching_msg = await message.reply_text("**Processing Your Request...**", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
     
     photo = await message.reply_to_message.download()
     img = Image.open(photo)
     text = pytesseract.image_to_string(img, lang='eng')
 
-    if not text.strip():
-        text = "**No readable text found in the image.**"
-
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
     user_profile_link = f"https://t.me/{message.from_user.username}"
 
-    text = f"```\n{text}\n```"  # Convert text to monospace format
-
-    text += f"\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
+    if not text.strip():
+        response = f"**No readable text found in the image**\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
+    else:
+        text = f"```\n{text}\n```"  # Convert text to monospace format
+        response = f"**Here's the Extracted Text:**\n━━━━━━━━━━━━━━━━\n{text}\n\n**Text Extracted By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
-    await message.reply_text(f"**Extracted Text:**\n{text}", parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    await message.reply_text(response, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
 def setup_ip_handlers(app: Client):
     @app.on_message(filters.command("ip") & filters.private)
