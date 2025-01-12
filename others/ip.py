@@ -5,10 +5,7 @@ from pyrogram.enums import ParseMode
 from PIL import Image
 import pytesseract
 import io
-from googleapiclient.discovery import build
-
-# Replace with your YouTube Data API key
-YOUTUBE_API_KEY = 'YOUR_YOUTUBE_API_KEY'
+from bs4 import BeautifulSoup
 
 def get_ip_info(ip: str) -> str:
     url = f"https://ipinfo.io/{ip}/json"
@@ -108,18 +105,17 @@ def check_proxy(proxy: str, auth: tuple = None) -> str:
         )
 
 def get_youtube_video_tags(url: str) -> str:
-    video_id = url.split("v=")[-1].split("&")[0]
-    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-    request = youtube.videos().list(part="snippet", id=video_id)
-    response = request.execute()
+    response = requests.get(url)
+    if response.status_code != 200:
+        return "**Sorry No Tags Available For This Video**"
 
-    if "items" not in response or not response["items"]:
-        return "Sorry No Tags Available For This Video"
+    soup = BeautifulSoup(response.text, 'html.parser')
+    meta_tags = soup.find_all('meta', {'property': 'og:video:tag'})
 
-    tags = response["items"][0]["snippet"].get("tags", [])
-    if not tags:
-        return "Sorry No Tags Available For This Video"
+    if not meta_tags:
+        return "**Sorry No Tags Available For This Video**"
 
+    tags = [meta['content'] for meta in meta_tags]
     tags_str = "\n".join([f"`{tag}`" for tag in tags])
     return f"**Your Requested Video Tags ✅**\n━━━━━━━━━━━━━━━━\n{tags_str}"
 
