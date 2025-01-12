@@ -38,26 +38,22 @@ def get_ip_info(ip: str) -> str:
     return details
 
 def get_domain_info(domain: str) -> str:
-    # Remove the URL scheme (e.g., http://, https://) from the domain if present
-    if domain.startswith(('http://', 'https://')):
-        domain = domain.split('//')[1]
-
-    url = f"https://api.whois.vu/?q={domain}"
+    url = f"https://api.domainsdb.info/v1/domains/search?domain={domain}"
     response = requests.get(url)
 
     if response.status_code != 200:
         return f"Invalid domain name: {domain}"
 
     data = response.json()
-    if "data" not in data or not data["data"]:
+    if "domains" not in data or not data["domains"]:
         return f"Invalid domain name: {domain}"
 
-    domain_info = data["data"]
-    domain_name = domain_info.get("domain_name", "Unknown")
+    domain_info = data["domains"][0]
+    domain_name = domain_info.get("domain", "Unknown")
     registrar = domain_info.get("registrar", "Unknown")
-    registration = domain_info.get("creation_date", "Unknown")
-    expiration = domain_info.get("expiry_date", "Unknown")
-    domain_available = "❌" if "registered" in domain_info.get("status", "") else "✅"
+    registration = domain_info.get("create_date", "Unknown")
+    expiration = domain_info.get("update_date", "Unknown")
+    domain_available = "✅" if domain_info.get("isDead", False) else "❌"
 
     details = (
         f"**Domain:** `{domain_name}`\n"
@@ -82,7 +78,7 @@ async def ip_info_handler(client: Client, message: Message):
     user_full_name = f"{message.from_user.first_name} {message.from_user.last_name or ''}".strip()
     user_profile_link = f"https://t.me/{message.from_user.username}"
 
-    details += f"\n**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
+    details += f"**Ip-Info Grab By:** [{user_full_name}]({user_profile_link})"
 
     await fetching_msg.delete()
     await message.reply_text(details, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
